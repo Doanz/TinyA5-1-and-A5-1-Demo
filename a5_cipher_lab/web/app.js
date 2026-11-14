@@ -1,10 +1,6 @@
 "use strict";
 
-// ============================================================
-// A5/1 Cipher Lab - giao dien thiet ke don gian, tong mau sang.
-// Co the tinh bang C++/WebAssembly. Neu chua build, JS tinh
-// cung quy tac de ban xem thu website ngay tren may.
-// ============================================================
+
 
 const SPECS = {
   tiny: {

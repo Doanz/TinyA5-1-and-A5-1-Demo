@@ -19,7 +19,7 @@ cd TinyA5-1-and-A5-1-Demo
 ```
 
 ## 3. Chạy website
-Mở Terminal trong VS Code, đảm bảo bạn đang ở **thư mục gốc dự án** (nơi có `website/`), rồi chạy:
+Mở Terminal trong VS Code, đảm bảo bạn đang ở thư mục gốc dự án, rồi chạy:
 cd a5_cipher_lab/web
 py -m http.server 8000
 Mở trình duyệt và truy cập http://localhost:8000.

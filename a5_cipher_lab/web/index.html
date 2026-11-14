@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f6f9fc">
-  <meta name="description" content="Mô phỏng TinyA5/1 và A5/1 theo bài giảng. Nhập P, K, theo dõi từng chu kỳ, mã hóa và giải mã.">
-  <title>A5/1 Cipher Lab | Mô phỏng mã dòng</title>
+  <meta name="description" content="Mô phỏng TinyA5/1 và A5/1. Nhập P, K, theo dõi từng chu kỳ, mã hóa và giải mã.">
+  <title>A5/1 & TinyA5/1 Demo | Mô phỏng mã dòng</title>
   <link rel="stylesheet" href="style.css">
   <script src="cipher.js" defer></script>
   <script src="app.js" defer></script>
@@ -13,13 +13,12 @@
 <body>
   <div class="page">
     <header class="topbar">
-      <a class="brand" href="#top" aria-label="A5/1 Cipher Lab - Về đầu trang"><span class="brand-mark">⊕</span><span><strong>Cipher Lab</strong><small>Mô phỏng mã dòng</small></span></a>
+      <a class="brand" href="#top" aria-label="Group 5 Demo - Về đầu trang"><span class="brand-mark">⊕</span><span><strong>Group 5</strong><small>Bản demo hệ mã dòng</small></span></a>
       <span class="engine-status" id="engineStatus"><span class="status-dot"></span> Đang khởi tạo...</span>
     </header>
 
     <main id="top">
       <section class="intro">
-        <span class="eyebrow">THỰC HÀNH MẬT MÃ HỌC</span>
         <h1>Mô phỏng <span>A5/1 & TinyA5/1</span></h1>
         <p>Chọn hệ mã, nhập dữ liệu nhị phân và theo dõi cách dòng khóa S tạo ra bản mã C = P ⊕ S.</p>
       </section>
@@ -37,7 +36,7 @@
           </button>
           <button class="algorithm-choice" type="button" data-algo="a5" aria-pressed="false">
             <span class="choice-icon">A</span>
-            <span class="choice-text"><strong>A5/1 theo slide</strong><small>Thanh ghi X / Y / Z: 19 / 22 / 23 bit</small></span>
+            <span class="choice-text"><strong>A5/1</strong><small>Thanh ghi X / Y / Z: 19 / 22 / 23 bit</small></span>
             <span class="choice-check" aria-hidden="true">✓</span>
           </button>
         </div>
@@ -69,7 +68,7 @@
             <div class="explain-group"><h3>1. Chia khóa K</h3><div class="register-info" id="registerInfo"></div><p id="indexNote" class="subtle-copy"></p></div>
             <div class="explain-group"><h3>2. Xác định thanh ghi quay</h3><div class="formula" id="majFormula"></div><p class="subtle-copy">Thanh ghi có bit điều khiển bằng MAJ sẽ được quay.</p></div>
             <div class="explain-group"><h3>3. Tính bit phản hồi</h3><div class="feedback-formulas" id="feedbackFormulas"></div><p class="subtle-copy">Bit mới chèn vào bên trái, đẩy các bit cũ sang phải.</p></div>
-            <div class="explain-group"><h3>4. Sinh dòng khóa và mã hóa</h3><div class="formula" id="outputFormula"></div><p class="subtle-copy">Lấy các bit sau khi quay để tạo sᵢ. Ghép thành S, sau đó tính C = P ⊕ S.</p></div>
+            <div class="explain-group"><h3>4. Sinh dòng khóa và mã hóa</h3><div c lass="formula" id="outputFormula"></div><p class="subtle-copy">Lấy các bit sau khi quay để tạo sᵢ. Ghép thành S, sau đó tính C = P ⊕ S.</p></div>
           </aside>
         </div>
 
@@ -97,7 +96,7 @@
 
       <p class="academic-note" id="academicNote">Lưu ý: Đây là website mô phỏng học tập, không sử dụng để bảo vệ dữ liệu thực tế.</p>
     </main>
-    <footer>© Cipher Lab · HTML / CSS / JavaScript / C++ WebAssembly</footer>
+    <footer>HTML / CSS / JavaScript / C++ WebAssembly</footer>
   </div>
 </body>
 </html>
