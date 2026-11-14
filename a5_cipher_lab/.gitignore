@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.exe
+cipher_test
+*.o
+.DS_Store
+.vscode/
+# QUAN TRONG: KHONG bo qua web/cipher.js va web/cipher.wasm
+# Neu muon publish GitHub Pages voi C++ / Wasm, phai commit 2 tep da build.
