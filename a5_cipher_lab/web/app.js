@@ -18,14 +18,14 @@ const SPECS = {
     academic: "TinyA5/1 là mô hình thu nhỏ 5–7–8 bit phục vụ học tập, không phải thuật toán bảo mật tiêu chuẩn."
   },
   a5: {
-    title: "A5/1 theo slide", keyLength: 64, lengths: [19, 22, 23],
+    title: "A5/1", keyLength: 64, lengths: [19, 22, 23],
     control: [8, 10, 10], taps: [[13, 16, 17, 18], [20, 21], [7, 20, 21, 22]],
     output: [8, 10, 10], oneBased: false,
     majority: "MAJ(x₈, y₁₀, z₁₀)",
     outputText: "sᵢ = x₈ ⊕ y₁₀ ⊕ z₁₀",
     feedbackText: ["tX = x₁₃ ⊕ x₁₆ ⊕ x₁₇ ⊕ x₁₈", "tY = y₂₀ ⊕ y₂₁", "tZ = z₇ ⊕ z₂₀ ⊕ z₂₁ ⊕ z₂₂"],
     sampleP: "1011", sampleK: "1011001100101101010011010011101001101011011001010110101100101011",
-    academic: "A5/1 theo slide chia trực tiếp K thành X/Y/Z và lấy bit đầu ra x8/y10/z10. Không phải quy trình GSM chuẩn (GSM còn có số frame, 100 chu kỳ khởi động và các bit đầu ra khác)."
+    academic: "A5/1 chia trực tiếp K thành X/Y/Z và lấy bit đầu ra x8/y10/z10. Không phải quy trình GSM chuẩn (GSM còn có số frame, 100 chu kỳ khởi động và các bit đầu ra khác)."
   }
 };
 
@@ -45,7 +45,6 @@ function validateInputs(mode, p, k) {
   return "";
 }
 
-// Mo phong JavaScript: giu cung quy uoc vi tri va cong thuc voi C++.
 function simulateJS(mode, p, k) {
   const error = validateInputs(mode, p, k);
   if (error) return {ok: false, error};
@@ -281,7 +280,6 @@ async function initWebAssembly() {
     engine = await createCipherModule({ locateFile: name => name });
     $("engineStatus").classList.add("wasm");
     $("engineStatus").innerHTML = '<span class="status-dot"></span> C++ / WebAssembly';
-    // Neu nguoi dung da chay bang JS, co the giu ket qua cu. Moi lan chay moi se dung C++.
   } catch (error) {
     console.warn("Chua tai duoc WebAssembly, dung JavaScript:", error);
     $("engineStatus").innerHTML = '<span class="status-dot"></span> JavaScript · sẵn sàng';
