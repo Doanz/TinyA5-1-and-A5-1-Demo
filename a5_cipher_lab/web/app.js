@@ -1,295 +1,304 @@
 "use strict";
-
-
-
+/* Giao diện website. Phần thuật toán nằm trong cipher-core.js */
+const $ = id => document.getElementById(id);
+const Core = window.CipherCore;
+const MAX_BITS = 4096;
+const MAX_TEXT_BYTES = 2048;
+const MAX_FILE_BYTES = 32 * 1024;
+const KEY_A5_HEX = "1223456789ABCDEF";
 const SPECS = {
   tiny: {
-    title: "TinyA5/1", keyLength: 20, lengths: [5, 7, 8],
-    control: [0, 2, 2], taps: [[1, 3, 4], [5, 6], [1, 6, 7]],
-    output: [4, 6, 7], oneBased: true,
-    majority: "MAJ(x₁, y₃, z₃)",
-    outputText: "sᵢ = x₅ ⊕ y₇ ⊕ z₈",
-    feedbackText: ["tX = x₂ ⊕ x₄ ⊕ x₅", "tY = y₆ ⊕ y₇", "tZ = z₂ ⊕ z₇ ⊕ z₈"],
-    sampleP: "1011", sampleK: "10101110010110110100",
-    academic: "TinyA5/1 là mô hình thu nhỏ 5–7–8 bit phục vụ học tập, không phải thuật toán bảo mật tiêu chuẩn."
+    title: "TinyA5/1 (cùng cấu hình với Python)", keyLength: 23, lengths: [6, 8, 9],
+    sampleK: "10101110010110110100101",
+    intro: "Khóa K được chia trực tiếp thành X/Y/Z như chương trình Python của dự án.",
+    init: "Khóa 23 bit → X 6 bit, Y 8 bit, Z 9 bit. Đánh số bit từ 0 ở bên trái (giống phép lấy chỉ số chuỗi Python).",
+    maj: "MAJ(x₁, y₃, z₃)",
+    feedback: ["tX = x₁ ⊕ x₃ ⊕ x₄", "tY = y₅ ⊕ y₆", "tZ = z₁ ⊕ z₆ ⊕ z₇"],
+    output: "sᵢ = x₅ ⊕ y₇ ⊕ z₈",
+    academic: "TinyA5/1 6–8–9 / 23 bit khớp với tệp Python hiện có. Đây là mô hình giáo dục, không phải tiêu chuẩn mật mã. Các vị trí phản hồi là chỉ số 0-based trong mã nguồn; tương đương các tap (2,4,5), (6,7), (2,7,8) nếu đếm từ 1."
   },
   a5: {
-    title: "A5/1", keyLength: 64, lengths: [19, 22, 23],
-    control: [8, 10, 10], taps: [[13, 16, 17, 18], [20, 21], [7, 20, 21, 22]],
-    output: [8, 10, 10], oneBased: false,
-    majority: "MAJ(x₈, y₁₀, z₁₀)",
-    outputText: "sᵢ = x₈ ⊕ y₁₀ ⊕ z₁₀",
-    feedbackText: ["tX = x₁₃ ⊕ x₁₆ ⊕ x₁₇ ⊕ x₁₈", "tY = y₂₀ ⊕ y₂₁", "tZ = z₇ ⊕ z₂₀ ⊕ z₂₁ ⊕ z₂₂"],
-    sampleP: "1011", sampleK: "1011001100101101010011010011101001101011011001010110101100101011",
-    academic: "A5/1 chia trực tiếp K thành X/Y/Z và lấy bit đầu ra x8/y10/z10. Không phải quy trình GSM chuẩn (GSM còn có số frame, 100 chu kỳ khởi động và các bit đầu ra khác)."
+    title: "A5/1 với khởi tạo GSM", keyLength: 64, lengths: [19, 22, 23],
+    sampleK: Core.bytesToBinary(Core.hexToBytes(KEY_A5_HEX)),
+    intro: "Khởi tạo chuẩn A5/1: các thanh ghi bắt đầu bằng 0; nạp khóa và số khung trước khi tạo dòng khóa.",
+    init: "X/Y/Z: 19/22/23 bit, ban đầu bằng 0. Nạp K 64 bit và frame 22 bit (LSB trước), chạy 100 chu kỳ majority không xuất bit. Mỗi frame cấp 114 bit cho một hướng.",
+    maj: "MAJ(x₈, y₁₀, z₁₀)",
+    feedback: ["tX = x₁₃ ⊕ x₁₆ ⊕ x₁₇ ⊕ x₁₈", "tY = y₂₀ ⊕ y₂₁", "tZ = z₇ ⊕ z₂₀ ⊕ z₂₁ ⊕ z₂₂"],
+    output: "sᵢ = x₁₈ ⊕ y₂₁ ⊕ z₂₂",
+    academic: "A5/1 GSM: chỉ số bit tính từ LSB = 0 (bên phải khi xem chuỗi). Demo nhiều frame lần lượt tăng số khung 22 bit, dùng 114 bit mỗi frame cho một hướng. Đây là mô phỏng dòng khóa, không phải hệ thống GSM hoàn chỉnh. A5/1 không an toàn cho dữ liệu thực tế."
   }
 };
-
-const $ = id => document.getElementById(id);
 let selectedMode = null;
-let engine = null;
+let inputFormat = "binary";
 let lastResult = null;
 let currentCycle = 1;
+let exported = null;
+let activeObjectUrls = [];
 
-function validateInputs(mode, p, k) {
-  const spec = SPECS[mode];
-  if (!/^[01]+$/.test(p)) return "Bản rõ P phải gồm ít nhất một bit 0 hoặc 1, không có dấu cách.";
-  if (p.length > 256) return "Bản rõ P không được vượt quá 256 bit để dễ theo dõi từng vòng.";
-  if (!/^[01]+$/.test(k) || k.length !== spec.keyLength) {
-    return `Khóa K của ${spec.title} phải gồm chính xác ${spec.keyLength} bit nhị phân (chỉ 0 và 1).`;
-  }
-  return "";
-}
-
-function simulateJS(mode, p, k) {
-  const error = validateInputs(mode, p, k);
-  if (error) return {ok: false, error};
-  const spec = SPECS[mode];
-  const [xLen, yLen] = spec.lengths;
-  const regs = [k.slice(0, xLen), k.slice(xLen, xLen + yLen), k.slice(xLen + yLen)];
-  const initial = [...regs];
-  const trace = [];
-  let s = "";
-  for (let n = 0; n < p.length; n++) {
-    const before = [...regs];
-    const controls = regs.map((reg, i) => Number(reg[spec.control[i]]));
-    const majority = controls[0] + controls[1] + controls[2] >= 2 ? 1 : 0;
-    const feedback = [null, null, null];
-    let rotated = "";
-    for (let j = 0; j < 3; j++) {
-      if (controls[j] === majority) {
-        const t = spec.taps[j].reduce((acc, index) => acc ^ Number(regs[j][index]), 0);
-        feedback[j] = t;
-        regs[j] = String(t) + regs[j].slice(0, -1);
-        rotated += "XYZ"[j];
-      }
-    }
-    const outputBits = regs.map((reg, i) => Number(reg[spec.output[i]]));
-    const bit = outputBits[0] ^ outputBits[1] ^ outputBits[2];
-    s += String(bit);
-    trace.push({cycle: n + 1, before, controls, majority, rotated, feedback, after: [...regs], outputBits, s: bit});
-  }
-  const c = [...p].map((bit, i) => String(Number(bit) ^ Number(s[i]))).join("");
-  const recovered = [...c].map((bit, i) => String(Number(bit) ^ Number(s[i]))).join("");
-  return {ok: true, algorithm: mode, p, k, initial, s, c, recovered, trace};
-}
-
-function simulate(mode, p, k) {
-  const error = validateInputs(mode, p, k);
-  if (error) return {ok: false, error};
-  if (engine) {
-    const json = engine.ccall("simulate", "string", ["string", "string", "string"], [mode, p, k]);
-    return JSON.parse(json);
-  }
-  return simulateJS(mode, p, k);
-}
-
-function setError(message = "") {
-  $("errorBox").textContent = message;
-  $("errorBox").hidden = !message;
-}
-
-function updateCounts() {
-  if (!selectedMode) return;
-  const p = $("plainInput").value.trim();
-  const k = $("keyInput").value.trim();
-  $("pCount").textContent = `${p.length} / 256 bit`;
-  $("kCount").textContent = `${k.length} / ${SPECS[selectedMode].keyLength} bit`;
-  $("pCount").classList.toggle("invalid", p.length > 256 || (p.length && !/^[01]+$/.test(p)));
-  $("kCount").classList.toggle("invalid", k.length > 0 && (k.length !== SPECS[selectedMode].keyLength || !/^[01]+$/.test(k)));
-}
-
+function clearUrls() { activeObjectUrls.forEach(url => URL.revokeObjectURL(url)); activeObjectUrls = []; }
+function setError(text = "") { $("errorBox").textContent = text; $("errorBox").hidden = !text; }
 function clearResults() {
-  lastResult = null;
+  lastResult = null; exported = null; clearUrls();
+  $("traceBody").replaceChildren();
   $("roundsSection").hidden = true;
   $("resultsSection").hidden = true;
-  $("traceBody").replaceChildren();
+  $("filePreview").hidden = true;
+  $("downloadRow").hidden = true;
+  $("fileImages").replaceChildren();
 }
-
+function updateCounts() {
+  if (!selectedMode) return;
+  const binary = $("plainInput").value.trim();
+  const key = $("keyInput").value.trim();
+  const byteLength = new TextEncoder().encode($("textInput").value).length;
+  $("pCount").textContent = `${binary.length} / ${MAX_BITS} bit`;
+  $("textCount").textContent = `${byteLength} / ${MAX_TEXT_BYTES} byte`;
+  $("kCount").textContent = `${key.length} / ${SPECS[selectedMode].keyLength} bit`;
+  $("pCount").classList.toggle("invalid", binary.length > MAX_BITS || (binary.length > 0 && !/^[01]+$/.test(binary)));
+  $("textCount").classList.toggle("invalid", byteLength > MAX_TEXT_BYTES);
+  $("kCount").classList.toggle("invalid", key.length !== SPECS[selectedMode].keyLength || !/^[01]*$/.test(key));
+}
 function populateExplanation() {
   const spec = SPECS[selectedMode];
-  $("algoIntro").textContent = `${spec.title} sử dụng ba thanh ghi X, Y, Z.`;
-  $("majFormula").textContent = spec.majority;
-  $("outputFormula").textContent = spec.outputText;
+  $("algoIntro").textContent = spec.intro;
   $("registerInfo").replaceChildren();
   ["X", "Y", "Z"].forEach((name, i) => {
-    const chip = document.createElement("div"); chip.className = "register-chip";
+    const cell = document.createElement("div"); cell.className = "register-chip";
     const strong = document.createElement("strong"); strong.textContent = name;
-    const label = document.createElement("small"); label.textContent = `${spec.lengths[i]} bit`;
-    chip.append(strong, label);
-    $("registerInfo").append(chip);
+    const small = document.createElement("small"); small.textContent = `${spec.lengths[i]} bit`;
+    cell.append(strong, small); $("registerInfo").append(cell);
   });
-  $("indexNote").textContent = spec.oneBased
-    ? "Các bit được đánh số từ 1, từ trái sang phải (x₁ là bit bên trái)."
-    : "Các bit được đánh số từ 0, từ trái sang phải (x₀ là bit bên trái).";
+  $("initInfo").textContent = spec.init;
+  $("majFormula").textContent = spec.maj;
+  $("outputFormula").textContent = spec.output;
   $("feedbackFormulas").replaceChildren();
-  spec.feedbackText.forEach(text => {
-    const line = document.createElement("div"); line.textContent = text;
-    $("feedbackFormulas").append(line);
-  });
-  $("kHint").innerHTML = `<span class="hint-symbol">i</span> Nhập đúng <strong>${spec.keyLength} bit</strong> (chỉ 0 và 1, không khoảng trắng). K chia lần lượt thành X (${spec.lengths[0]}), Y (${spec.lengths[1]}) và Z (${spec.lengths[2]}).`;
-  $("keyInput").placeholder = `Nhập đúng ${spec.keyLength} bit 0/1`;
-  $("academicNote").textContent = spec.academic;
+  for (const line of spec.feedback) {
+    const element = document.createElement("div"); element.textContent = line;
+    $("feedbackFormulas").append(element);
+  }
+  $("modeAcademicNote").textContent = spec.academic;
+  $("kHint").innerHTML = `<span class="hint-symbol">i</span> Nhập <strong>chính xác ${spec.keyLength} bit</strong>, chỉ gồm 0 hoặc 1, không có dấu cách. ${selectedMode === "a5" ? "8 byte của khóa được nhập theo thứ tự hiển thị (MSB trước trong mỗi byte); khi khởi tạo sẽ nạp LSB trước." : "Khóa chia lần lượt thành 6 + 8 + 9 bit."}`;
+  $("keyInput").placeholder = `Khóa ${spec.keyLength} bit nhị phân (0 hoặc 1)`;
+  $("frameOptions").hidden = selectedMode !== "a5";
+  updateCounts();
 }
-
-function chooseMode(mode) {
+function selectMode(mode) {
   selectedMode = mode;
   $("workspace").hidden = false;
-  $("selectionHelp").textContent = `Đã chọn ${SPECS[mode].title}. Bạn có thể nhập P và K bên dưới.`;
-  document.querySelectorAll(".algorithm-choice").forEach(button => {
-    const active = button.dataset.algo === mode;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
+  $("selectionHelp").textContent = `Đã chọn ${SPECS[mode].title}. Hãy nhập P và K ở phía dưới.`;
+  document.querySelectorAll(".algorithm-choice").forEach(btn => {
+    const selected = btn.dataset.algo === mode;
+    btn.classList.toggle("active", selected);
+    btn.setAttribute("aria-pressed", String(selected));
   });
-  $("plainInput").value = "";
-  $("keyInput").value = "";
-  clearResults();
-  setError();
-  populateExplanation();
-  updateCounts();
+  $("plainInput").value = ""; $("textInput").value = "";
+  $("keyInput").value = ""; $("fileInput").value = "";
+  $("frameInput").value = "0x134";
+  setError(); clearResults(); populateExplanation();
 }
-
+function selectFormat(format) {
+  inputFormat = format;
+  ["binary", "text", "file"].forEach(name => {
+    $({binary: "binaryFields", text: "textFields", file: "fileFields"}[name]).hidden = name !== format;
+  });
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    const active = btn.dataset.format === format;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
+  clearResults(); setError();
+}
 function useSample() {
   if (!selectedMode) return;
-  const spec = SPECS[selectedMode];
-  $("plainInput").value = spec.sampleP;
-  $("keyInput").value = spec.sampleK;
-  updateCounts();
-  setError();
-  clearResults();
+  if (inputFormat === "file") selectFormat("text");
+  $("plainInput").value = "1011";
+  $("textInput").value = "Xin chào!";
+  $("keyInput").value = SPECS[selectedMode].sampleK;
+  $("frameInput").value = "0x134";
+  setError(); updateCounts(); clearResults();
 }
-
-function createCell(row, value) {
-  const td = document.createElement("td");
-  td.textContent = value;
-  row.append(td);
+function readFrame(value) {
+  const cleaned = value.trim();
+  if (!/^(?:0[xX][0-9a-fA-F]+|[0-9]+)$/.test(cleaned))
+    throw Error("Số frame phải là số thập phân hoặc HEX bắt đầu bằng 0x.");
+  const frame = /^0[xX]/.test(cleaned) ? parseInt(cleaned, 16) : Number(cleaned);
+  if (!Number.isInteger(frame) || frame < 0 || frame > 4194303)
+    throw Error("Số frame phải nằm trong khoảng 0–4194303 (22 bit).");
+  return frame;
 }
-
-function showCycle(n) {
-  if (!lastResult || n < 1 || n > lastResult.trace.length) return;
-  currentCycle = n;
-  const step = lastResult.trace[n - 1];
-  const spec = SPECS[selectedMode];
-  const rotated = step.rotated.split("").join(", ");
-  $("detailTitle").textContent = `Chi tiết vòng ${n}`;
-  $("detailSummary").textContent = `Bit điều khiển: ${step.controls.join(" / ")} · MAJ = ${step.majority} · Quay: ${rotated} · s${n} = ${step.s}`;
-  $("prevBtn").disabled = n === 1;
-  $("nextBtn").disabled = n === lastResult.trace.length;
-  $("registerDetails").replaceChildren();
-  ["X", "Y", "Z"].forEach((name, i) => {
-    const card = document.createElement("div"); card.className = "register-detail";
-    const strong = document.createElement("strong"); strong.textContent = `Thanh ghi ${name}`;
-    const moved = step.rotated.includes(name);
-    const badge = document.createElement("small"); badge.textContent = moved ? "↻ Đã quay" : "Giữ nguyên";
-    if (!moved) badge.className = "not-rotated";
-    card.append(strong, badge);
-    const line1 = document.createElement("div"); line1.className = "state-line"; line1.textContent = "Trước quay";
-    const before = document.createElement("code"); before.textContent = step.before[i];
-    const line2 = document.createElement("div"); line2.className = "state-line after"; line2.textContent = "Sau quay";
-    const after = document.createElement("code"); after.textContent = step.after[i];
-    const note = document.createElement("div"); note.className = "state-line";
-    note.textContent = `Điều khiển: ${step.controls[i]} · t: ${step.feedback[i] ?? "—"} · Bit đầu ra: ${step.outputBits[i]} (vị trí ${spec.output[i] + (spec.oneBased ? 1 : 0)})`;
-    card.append(line1, before, line2, after, note);
-    $("registerDetails").append(card);
-  });
-  document.querySelectorAll("#traceBody tr").forEach(row => {
-    row.classList.toggle("selected", Number(row.dataset.cycle) === n);
-    row.setAttribute("aria-selected", String(Number(row.dataset.cycle) === n));
-  });
+function validFile(file) {
+  return file && (file.type.startsWith("text/") || ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)
+    || /\.(txt|md|csv|json)$/i.test(file.name));
 }
-
-function renderTrace() {
-  const {trace} = lastResult;
+async function getPlaintext() {
+  if (inputFormat === "binary") {
+    const bits = $("plainInput").value.trim();
+    if (!/^[01]+$/.test(bits)) throw Error("Bản rõ P phải là dãy bit 0/1 không rỗng.");
+    if (bits.length > MAX_BITS) throw Error(`Bản rõ nhị phân không được vượt quá ${MAX_BITS} bit.`);
+    return {bits, label: "Nhị phân", name: "binary-message", originalBytes: null};
+  }
+  if (inputFormat === "text") {
+    const text = $("textInput").value;
+    const bytes = new TextEncoder().encode(text);
+    if (!bytes.length) throw Error("Hãy nhập bản rõ văn bản trước khi chạy.");
+    if (bytes.length > MAX_TEXT_BYTES) throw Error(`Văn bản không được vượt quá ${MAX_TEXT_BYTES} byte UTF-8.`);
+    return {bits: Core.bytesToBinary(bytes), bytes, originalBytes: bytes, text, label: "UTF-8", name: "message.txt"};
+  }
+  const file = $("fileInput").files[0];
+  if (!file) throw Error("Bạn chưa chọn tệp văn bản hoặc ảnh.");
+  if (!validFile(file)) throw Error("Chỉ hỗ trợ tệp văn bản hoặc ảnh PNG/JPEG/WEBP/GIF.");
+  if (!file.size) throw Error("Tệp rỗng, không có dữ liệu để mã hóa.");
+  if (file.size > MAX_FILE_BYTES) throw Error("Tệp vượt quá 32 KB. Hãy chọn ảnh/tệp nhỏ hơn.");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  return {bits: Core.bytesToBinary(bytes), bytes, originalBytes: bytes,
+    label: "Tệp", name: file.name, mime: file.type || "application/octet-stream"};
+}
+function abbreviate(text, limit = 144) {
+  return text.length > limit ? text.slice(0, limit) + `… (${text.length} ký tự)` : text;
+}
+function cell(tr, value) { const td = document.createElement("td"); td.textContent = value; tr.append(td); }
+function renderTrace(result) {
+  $("roundsSection").hidden = false;
+  $("roundCount").textContent = `${result.totalCycles.toLocaleString("vi-VN")} bit / ${result.framesUsed || 1} ${selectedMode === "a5" ? "frame" : "lượt"}; hiển thị ${result.trace.length} chu kỳ đầu`;
+  $("keystreamText").textContent = result.s.slice(0, 96) + (result.s.length > 96 ? "…" : "");
   $("traceBody").replaceChildren();
-  trace.forEach(step => {
-    const row = document.createElement("tr");
-    row.dataset.cycle = String(step.cycle);
-    row.tabIndex = 0;
-    row.setAttribute("aria-label", `Xem chi tiết vòng ${step.cycle}`);
-    const values = [step.cycle, step.controls.join(" / "), step.majority,
-      step.rotated.split("").join(", "), step.feedback.map(x => x ?? "—").join(" / "),
+  for (const step of result.trace) {
+    const tr = document.createElement("tr"); tr.tabIndex = 0;
+    const values = [step.cycle, step.frame === null ? "—" : `0x${step.frame.toString(16)}`,
+      step.controls.join(" / "), step.majority, step.rotated.split("").join(", "),
+      step.feedback.map(n => n === null ? "—" : n).join(" / "),
       ...step.after, step.s];
-    values.forEach(v => createCell(row, String(v)));
-    row.addEventListener("click", () => showCycle(step.cycle));
-    row.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showCycle(step.cycle); } });
-    $("traceBody").append(row);
+    values.forEach(v => cell(tr, v));
+    tr.addEventListener("click", () => showCycle(step.cycle));
+    tr.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); showCycle(step.cycle); } });
+    $("traceBody").append(tr);
+  }
+  if (result.trace.length) showCycle(1);
+}
+function showCycle(cycle) {
+  if (!lastResult || cycle < 1 || cycle > lastResult.trace.length) return;
+  currentCycle = cycle;
+  const step = lastResult.trace[cycle - 1];
+  $("detailTitle").textContent = `Chi tiết vòng ${cycle}`;
+  $("detailSummary").textContent = `${step.frame === null ? "TinyA5/1" : `Frame ${step.frame}`} · Điều khiển ${step.controls.join(" / ")} · MAJ = ${step.majority} · Quay ${step.rotated} · Bit khóa s${cycle} = ${step.s}`;
+  $("prevBtn").disabled = cycle === 1;
+  $("nextBtn").disabled = cycle === lastResult.trace.length;
+  $("registerDetails").replaceChildren();
+  ["X", "Y", "Z"].forEach((name, j) => {
+    const div = document.createElement("div"); div.className = "register-detail";
+    const h = document.createElement("strong"); h.textContent = `Thanh ghi ${name}`;
+    const active = step.rotated.includes(name);
+    const b = document.createElement("small"); b.textContent = active ? "↻ Quay" : "Giữ nguyên";
+    if (!active) b.classList.add("not-rotated");
+    const first = document.createElement("div"); first.className = "state-line"; first.textContent = "Trước:";
+    const firstCode = document.createElement("code"); firstCode.textContent = step.before[j];
+    const second = document.createElement("div"); second.className = "state-line after";
+    second.textContent = `Sau (t = ${step.feedback[j] === null ? "—" : step.feedback[j]}):`;
+    const secondCode = document.createElement("code"); secondCode.textContent = step.after[j];
+    div.append(h, b, first, firstCode, second, secondCode);
+    $("registerDetails").append(div);
   });
-  $("roundCount").textContent = `${trace.length} chu kỳ`;
-  $("keystreamText").textContent = lastResult.s;
-  showCycle(1);
+  Array.from($("traceBody").children).forEach((tr, i) => tr.classList.toggle("selected", i === cycle - 1));
 }
-
-function renderResult() {
-  $("outP").textContent = lastResult.p;
-  $("outS").textContent = lastResult.s;
-  $("outC").textContent = lastResult.c;
-  $("outRecovered").textContent = lastResult.recovered;
-  const passed = lastResult.recovered === lastResult.p;
-  $("resultStatus").textContent = passed ? "✓ KIỂM THỬ PASS" : "KIỂM THỬ FAIL";
-  $("resultStatus").classList.toggle("fail", !passed);
-  $("resultFoot").textContent = passed ? "Giải mã thành công: P sau giải mã trùng khớp với bản rõ ban đầu." : "Kết quả giải mã không trùng bản rõ. Hãy kiểm tra lại thuật toán.";
+function newDownload(bytes, filename, mime = "application/octet-stream") {
+  const blob = new Blob([bytes], {type: mime});
+  const url = URL.createObjectURL(blob); activeObjectUrls.push(url);
+  const a = document.createElement("a"); a.href = url; a.download = filename;
+  document.body.append(a); a.click(); a.remove();
 }
-
-function runSimulation(event) {
-  event?.preventDefault();
-  if (!selectedMode) return;
-  const p = $("plainInput").value.trim();
-  const k = $("keyInput").value.trim();
-  try {
-    const result = simulate(selectedMode, p, k);
-    if (!result.ok) { setError(result.error || "Đầu vào không hợp lệ."); clearResults(); return; }
-    lastResult = result;
-    setError();
-    $("roundsSection").hidden = false;
-    $("resultsSection").hidden = false;
-    renderTrace();
-    renderResult();
-    $("roundsSection").scrollIntoView({behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start"});
-  } catch (error) {
-    clearResults();
-    setError(`Không thể mô phỏng: ${error.message}`);
-  }
+function makeImageCard(bytes, caption, mime) {
+  const figure = document.createElement("figure");
+  const img = document.createElement("img"); img.alt = caption;
+  const url = URL.createObjectURL(new Blob([bytes], {type: mime}));
+  activeObjectUrls.push(url); img.src = url;
+  const figcaption = document.createElement("figcaption"); figcaption.textContent = caption;
+  figure.append(img, figcaption); return figure;
 }
-
-async function copyResult(property, button) {
-  if (!lastResult) return;
-  const value = lastResult[property];
-  try {
-    await navigator.clipboard.writeText(value);
-    const original = button.textContent;
-    button.textContent = "✓ Đã sao chép";
-    setTimeout(() => button.textContent = original, 1400);
-  } catch {
-    const element = property === "c" ? $("outC") : $("outRecovered");
-    const range = document.createRange(); range.selectNodeContents(element);
-    const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
-    button.textContent = "Hãy nhấn Ctrl+C";
-  }
-}
-
-async function initWebAssembly() {
-  if (typeof createCipherModule !== "function") {
-    $("engineStatus").innerHTML = '<span class="status-dot"></span> JavaScript · sẵn sàng';
+function renderResults(result, input) {
+  $("resultsSection").hidden = false;
+  const correct = result.ok && result.recovered === input.bits;
+  $("resultStatus").textContent = correct ? "PASS" : "FAIL";
+  $("resultStatus").classList.toggle("fail", !correct);
+  $("resultFoot").textContent = correct
+    ? `Đã khôi phục toàn bộ ${input.bits.length.toLocaleString("vi-VN")} bit của bản rõ; ${result.framesUsed ? `${result.framesUsed} frame A5/1` : "TinyA5/1"}.`
+    : "Giải mã không trùng với dữ liệu ban đầu.";
+  exported = {format: inputFormat, c: result.c, recovered: result.recovered};
+  if (inputFormat === "binary") {
+    $("resultType").textContent = "Dữ liệu nhị phân — C = P ⊕ S; giải mã P = C ⊕ S.";
+    $("cipherLabel").textContent = "BẢN MÃ C (NHỊ PHÂN)";
+    $("recoverLabel").textContent = "BẢN RÕ KHÔI PHỤC (NHỊ PHÂN)";
+    $("outP").textContent = abbreviate(input.bits, 200);
+    $("outS").textContent = abbreviate(result.s, 200);
+    $("outC").textContent = abbreviate(result.c, 180);
+    $("outRecovered").textContent = abbreviate(result.recovered, 180);
     return;
   }
-  try {
-    engine = await createCipherModule({ locateFile: name => name });
-    $("engineStatus").classList.add("wasm");
-    $("engineStatus").innerHTML = '<span class="status-dot"></span> C++ / WebAssembly';
-  } catch (error) {
-    console.warn("Chua tai duoc WebAssembly, dung JavaScript:", error);
-    $("engineStatus").innerHTML = '<span class="status-dot"></span> JavaScript · sẵn sàng';
+  const encrypted = Core.binaryToBytes(result.c);
+  const decrypted = Core.binaryToBytes(result.recovered);
+  exported.encryptedBytes = encrypted;
+  exported.decryptedBytes = decrypted;
+  exported.filename = input.name;
+  exported.mime = input.mime || "text/plain;charset=utf-8";
+  $("resultType").textContent = `Dữ liệu ${input.label}: byte → bit → XOR → byte. Kết quả đầy đủ có thể tải về.`;
+  $("cipherLabel").textContent = "BẢN MÃ C (HEX, PHẦN ĐẦU)";
+  $("recoverLabel").textContent = inputFormat === "text" ? "VĂN BẢN SAU GIẢI MÃ" : "TỆP SAU GIẢI MÃ";
+  $("outP").textContent = inputFormat === "text" ? abbreviate(input.text, 120) : `${input.name} (${input.bytes.length} byte)`;
+  $("outS").textContent = Core.bytesToHex(Core.binaryToBytes(result.s), 32) + (result.s.length > 256 ? "…" : "");
+  $("outC").textContent = Core.bytesToHex(encrypted, 64) + (encrypted.length > 64 ? "…" : "");
+  $("outRecovered").textContent = inputFormat === "text" ? abbreviate(new TextDecoder().decode(decrypted), 180)
+    : `Khôi phục nguyên vẹn ${input.name} (${decrypted.length} byte)`;
+  $("downloadRow").hidden = false;
+  $("copyCipher").textContent = "Sao chép HEX đầu";
+  $("copyRecovered").textContent = "Sao chép kết quả";
+  if (inputFormat === "file") {
+    $("filePreview").hidden = false;
+    const equal = input.bytes.length === decrypted.length && input.bytes.every((b, i) => b === decrypted[i]);
+    $("fileResultInfo").textContent = `So sánh byte gốc và byte giải mã: ${equal ? "KHỚP 100%" : "KHÔNG KHỚP"}. Tải tệp đã giải mã để mở bằng phần mềm tương ứng.`;
+    if (input.mime && input.mime.startsWith("image/")) {
+      $("fileImages").append(makeImageCard(input.bytes, "Ảnh gốc", input.mime));
+      $("fileImages").append(makeImageCard(decrypted, "Ảnh khôi phục", input.mime));
+    }
   }
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".algorithm-choice").forEach(btn => btn.addEventListener("click", () => chooseMode(btn.dataset.algo)));
-  ["plainInput", "keyInput"].forEach(id => $(id).addEventListener("input", () => { updateCounts(); setError(); clearResults(); }));
+async function onSubmit(event) {
+  event.preventDefault();
+  if (!selectedMode) return;
+  setError(); clearResults();
+  try {
+    const k = $("keyInput").value.trim();
+    if (!new RegExp(`^[01]{${SPECS[selectedMode].keyLength}}$`).test(k))
+      throw Error(`Khóa K cần chính xác ${SPECS[selectedMode].keyLength} bit, chỉ gồm 0 hoặc 1.`);
+    const input = await getPlaintext();
+    const frame = selectedMode === "a5" ? readFrame($("frameInput").value) : 0;
+    const direction = selectedMode === "a5" ? $("directionInput").value : "a2b";
+    const result = Core.run(selectedMode, input.bits, k, frame, direction);
+    lastResult = result;
+    renderTrace(result);
+    renderResults(result, input);
+    $("roundsSection").scrollIntoView({behavior: "smooth", block: "start"});
+  } catch (error) { setError(error.message || "Lỗi không xác định."); }
+}
+async function copyText(value) {
+  try { await navigator.clipboard.writeText(value); }
+  catch (_) { window.prompt("Sao chép nội dung:", value); }
+}
+function boot() {
+  document.querySelectorAll(".algorithm-choice").forEach(btn => btn.addEventListener("click", () => selectMode(btn.dataset.algo)));
+  document.querySelectorAll(".mode-btn").forEach(btn => btn.addEventListener("click", () => selectFormat(btn.dataset.format)));
+  ["plainInput", "keyInput", "textInput"].forEach(id => $(id).addEventListener("input", updateCounts));
+  $("fileInput").addEventListener("change", () => {
+    const file = $("fileInput").files[0];
+    $("fileDescription").textContent = file ? `${file.name} · ${file.size.toLocaleString("vi-VN")} byte` : "Chưa chọn tệp.";
+    setError(); clearResults();
+  });
   $("sampleBtn").addEventListener("click", useSample);
-  $("cipherForm").addEventListener("submit", runSimulation);
+  $("cipherForm").addEventListener("submit", onSubmit);
   $("prevBtn").addEventListener("click", () => showCycle(currentCycle - 1));
   $("nextBtn").addEventListener("click", () => showCycle(currentCycle + 1));
-  document.querySelectorAll(".copy-result").forEach(btn => btn.addEventListener("click", () => copyResult(btn.dataset.copy, btn)));
-  document.addEventListener("keydown", e => { if (e.ctrlKey && e.key === "Enter" && selectedMode) runSimulation(e); });
-  initWebAssembly();
-});
+  $("copyCipher").addEventListener("click", () => exported && copyText(exported.encryptedBytes ? Core.bytesToHex(exported.encryptedBytes, 64) : exported.c));
+  $("copyRecovered").addEventListener("click", () => exported && copyText(exported.format === "binary" ? exported.recovered : $("outRecovered").textContent));
+  $("downloadCipher").addEventListener("click", () => exported && exported.encryptedBytes && newDownload(exported.encryptedBytes, exported.filename + ".enc"));
+  $("downloadRecovered").addEventListener("click", () => exported && exported.decryptedBytes && newDownload(exported.decryptedBytes, "recovered_" + exported.filename, exported.mime));
+  window.addEventListener("beforeunload", clearUrls);
+}
+boot();

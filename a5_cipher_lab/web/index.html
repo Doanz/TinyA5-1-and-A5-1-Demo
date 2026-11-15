@@ -1,102 +1,124 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f9fc">
-  <meta name="description" content="Mô phỏng TinyA5/1 và A5/1. Nhập P, K, theo dõi từng chu kỳ, mã hóa và giải mã.">
-  <title>A5/1 & TinyA5/1 Demo | Mô phỏng mã dòng</title>
+  <meta name="description" content="Mô phỏng TinyA5/1 23 bit và A5/1 với khởi tạo GSM; mã hóa nhị phân, văn bản, ảnh nhỏ.">
+  <title>TinyA5/1 &amp; A5/1 | Mô phỏng mã dòng</title>
   <link rel="stylesheet" href="style.css">
-  <script src="cipher.js" defer></script>
+  <!-- JavaScript chạy trực tiếp trên trình duyệt, không cần cipher.js / WASM. -->
+  <script src="cipher-core.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
   <div class="page">
     <header class="topbar">
-      <a class="brand" href="#top" aria-label="Group 5 Demo - Về đầu trang"><span class="brand-mark">⊕</span><span><strong>Group 5</strong><small>Bản demo hệ mã dòng</small></span></a>
-      <span class="engine-status" id="engineStatus"><span class="status-dot"></span> Đang khởi tạo...</span>
+      <a class="brand" href="#top" aria-label="Về đầu trang"><span class="brand-mark">⊕</span>
+        <span><strong>Group 5 Demo</strong><small>TinyA5/1 &amp; A5/1</small></span></a>
+      <span class="engine-status wasm"><span class="status-dot"></span> JavaScript · hoạt động offline</span>
     </header>
 
     <main id="top">
       <section class="intro">
-        <h1>Mô phỏng <span>A5/1 & TinyA5/1</span></h1>
-        <p>Chọn hệ mã, nhập dữ liệu nhị phân và theo dõi cách dòng khóa S tạo ra bản mã C = P ⊕ S.</p>
+        <span class="eyebrow">DEMO MẬT MÃ DÒNG · PHIÊN BẢN ĐÃ HIỆU CHỈNH</span>
+        <h1>Mô phỏng <span>TinyA5/1 &amp; A5/1</span></h1>
+        <p>Nhập khóa và bản rõ, quan sát Majority clocking, sinh dòng khóa rồi mã hóa và giải mã bằng XOR.</p>
       </section>
 
       <section class="card choice-card" aria-labelledby="chooseTitle">
-        <div class="section-heading">
-          <span class="step-number">01</span>
-          <div><h2 id="chooseTitle">Chọn hệ mã</h2><p>Chọn một trong hai thuật toán trước khi nhập dữ liệu.</p></div>
-        </div>
-        <div class="choice-grid" role="group" aria-label="Hệ mã muốn mô phỏng">
+        <div class="section-heading"><span class="step-number">01</span><div><h2 id="chooseTitle">Chọn hệ mã</h2><p>Hai chế độ có cách khởi tạo khác nhau.</p></div></div>
+        <div class="choice-grid" role="group" aria-label="Chọn hệ mã">
           <button class="algorithm-choice" type="button" data-algo="tiny" aria-pressed="false">
-            <span class="choice-icon">T</span>
-            <span class="choice-text"><strong>TinyA5/1</strong><small>Thanh ghi X / Y / Z: 5 / 7 / 8 bit</small></span>
-            <span class="choice-check" aria-hidden="true">✓</span>
+            <span class="choice-icon">T</span><span class="choice-text"><strong>TinyA5/1</strong><small>Khóa 23 bit · thanh ghi 6 / 8 / 9 bit</small></span><span class="choice-check">✓</span>
           </button>
           <button class="algorithm-choice" type="button" data-algo="a5" aria-pressed="false">
-            <span class="choice-icon">A</span>
-            <span class="choice-text"><strong>A5/1</strong><small>Thanh ghi X / Y / Z: 19 / 22 / 23 bit</small></span>
-            <span class="choice-check" aria-hidden="true">✓</span>
+            <span class="choice-icon">A</span><span class="choice-text"><strong>A5/1 – khởi tạo GSM</strong><small>Khóa 64 bit · frame 22 bit · 100 chu kỳ khởi động</small></span><span class="choice-check">✓</span>
           </button>
         </div>
-        <div class="selection-help" id="selectionHelp">Chọn hệ mã để mở phần nhập bản rõ và khóa.</div>
+        <div class="selection-help" id="selectionHelp">Chọn hệ mã để mở phần nhập dữ liệu.</div>
       </section>
 
       <div id="workspace" hidden>
         <div class="setup-grid">
           <section class="card input-card" aria-labelledby="inputTitle">
-            <div class="section-heading"><span class="step-number">02</span><div><h2 id="inputTitle">Nhập dữ liệu</h2><p>Điền bản rõ P và khóa K dưới dạng nhị phân.</p></div></div>
+            <div class="section-heading"><span class="step-number">02</span><div><h2 id="inputTitle">Nhập bản rõ và khóa</h2><p>Đọc hướng dẫn bên dưới mỗi ô trước khi chạy.</p></div></div>
             <form id="cipherForm" novalidate>
               <div class="field-block">
-                <div class="label-row"><label for="plainInput">Bản rõ <strong>P</strong></label><span class="char-count" id="pCount">0 bit</span></div>
-                <textarea id="plainInput" spellcheck="false" rows="2" inputmode="numeric" placeholder="Ví dụ: 1011" aria-describedby="pHint" required></textarea>
-                <p class="field-hint" id="pHint"><span class="hint-symbol">i</span> Chỉ nhập các số <strong>0</strong> hoặc <strong>1</strong>, không có khoảng trắng. Tối đa 256 bit.</p>
+                <label class="field-title">Dạng bản rõ P</label>
+                <div class="mode-grid" role="group" aria-label="Chọn loại bản rõ">
+                  <button type="button" class="mode-btn active" data-format="binary" aria-pressed="true">Nhị phân</button>
+                  <button type="button" class="mode-btn" data-format="text" aria-pressed="false">Văn bản</button>
+                  <button type="button" class="mode-btn" data-format="file" aria-pressed="false">Tệp / ảnh</button>
+                </div>
+              </div>
+              <div id="binaryFields" class="field-block">
+                <div class="label-row"><label for="plainInput">Bản rõ <strong>P</strong> (nhị phân)</label><span class="char-count" id="pCount">0 / 4096 bit</span></div>
+                <textarea id="plainInput" spellcheck="false" rows="2" placeholder="Ví dụ: 1011" aria-describedby="pHint"></textarea>
+                <p class="field-hint" id="pHint"><span class="hint-symbol">i</span> Chỉ được nhập <strong>0 và 1</strong>, không dấu cách. Tối đa 4096 bit.</p>
+              </div>
+              <div id="textFields" class="field-block" hidden>
+                <div class="label-row"><label for="textInput">Văn bản <strong>P</strong> (UTF-8)</label><span class="char-count" id="textCount">0 / 2048 byte</span></div>
+                <textarea id="textInput" spellcheck="false" rows="3" placeholder="Ví dụ: Xin chào A5/1!" aria-describedby="textHint"></textarea>
+                <p class="field-hint" id="textHint"><span class="hint-symbol">i</span> Có thể nhập tiếng Việt có dấu. Dữ liệu sẽ được chuyển sang byte UTF-8 rồi mã hóa. Tối đa 2048 byte.</p>
+              </div>
+              <div id="fileFields" class="field-block" hidden>
+                <label class="field-title" for="fileInput">Tệp văn bản hoặc ảnh nhỏ</label>
+                <input type="file" id="fileInput" accept="text/*,.txt,.md,.csv,.json,image/png,image/jpeg,image/webp,image/gif" aria-describedby="fileHint">
+                <p class="field-hint" id="fileHint"><span class="hint-symbol">i</span> Hỗ trợ TXT/MD/CSV/JSON hoặc PNG/JPEG/WEBP/GIF; tối đa <strong>32 KB</strong>. Tệp được xử lý ngay trên máy, không tải lên server.</p>
+                <div class="file-description" id="fileDescription">Chưa chọn tệp.</div>
               </div>
               <div class="field-block">
-                <div class="label-row"><label for="keyInput">Khóa <strong>K</strong></label><span class="char-count" id="kCount">0 / 20 bit</span></div>
-                <textarea id="keyInput" spellcheck="false" rows="3" inputmode="numeric" placeholder="Nhập khóa nhị phân" aria-describedby="kHint" required></textarea>
-                <p class="field-hint" id="kHint"><span class="hint-symbol">i</span> Khóa phải có đủ số bit theo thuật toán bạn chọn.</p>
+                <div class="label-row"><label for="keyInput">Khóa <strong>K</strong></label><span class="char-count" id="kCount">0 bit</span></div>
+                <textarea id="keyInput" spellcheck="false" rows="3" placeholder="Nhập khóa nhị phân" aria-describedby="kHint"></textarea>
+                <p class="field-hint" id="kHint"><span class="hint-symbol">i</span> Khóa chỉ gồm 0 và 1.</p>
+              </div>
+              <div class="frame-options" id="frameOptions" hidden>
+                <div class="field-block"><label class="field-title" for="frameInput">Số khung GSM (Frame Number – 22 bit)</label>
+                  <input id="frameInput" type="text" value="0x134" spellcheck="false" aria-describedby="frameHint">
+                  <p class="field-hint" id="frameHint"><span class="hint-symbol">i</span> Nhập số thập phân (ví dụ 308) hoặc HEX (ví dụ 0x134), từ 0 đến 4194303. Mỗi 114 bit tiếp theo sử dụng frame kế tiếp.</p>
+                </div>
+                <div class="field-block"><label class="field-title" for="directionInput">Hướng dòng khóa</label>
+                  <select id="directionInput"><option value="a2b">A → B (114 bit đầu)</option><option value="b2a">B → A (114 bit sau)</option></select>
+                </div>
               </div>
               <p class="validation" id="errorBox" role="alert" hidden></p>
-              <div class="form-actions"><button class="primary-button" type="submit">Chạy mô phỏng <span aria-hidden="true">→</span></button><button class="secondary-button" type="button" id="sampleBtn">Điền dữ liệu mẫu</button></div>
+              <div class="form-actions"><button class="primary-button" type="submit">Chạy mô phỏng <span aria-hidden="true">→</span></button><button class="secondary-button" type="button" id="sampleBtn">Dữ liệu mẫu</button></div>
             </form>
           </section>
 
           <aside class="card explain-card" aria-labelledby="explainTitle">
-            <div class="section-heading"><span class="step-number soft">?</span><div><h2 id="explainTitle">Giải thích thuật toán</h2><p id="algoIntro">Các quy tắc sẽ hiện sau khi chọn hệ mã.</p></div></div>
-            <div class="explain-group"><h3>1. Chia khóa K</h3><div class="register-info" id="registerInfo"></div><p id="indexNote" class="subtle-copy"></p></div>
-            <div class="explain-group"><h3>2. Xác định thanh ghi quay</h3><div class="formula" id="majFormula"></div><p class="subtle-copy">Thanh ghi có bit điều khiển bằng MAJ sẽ được quay.</p></div>
-            <div class="explain-group"><h3>3. Tính bit phản hồi</h3><div class="feedback-formulas" id="feedbackFormulas"></div><p class="subtle-copy">Bit mới chèn vào bên trái, đẩy các bit cũ sang phải.</p></div>
-            <div class="explain-group"><h3>4. Sinh dòng khóa và mã hóa</h3><div c lass="formula" id="outputFormula"></div><p class="subtle-copy">Lấy các bit sau khi quay để tạo sᵢ. Ghép thành S, sau đó tính C = P ⊕ S.</p></div>
+            <div class="section-heading"><span class="step-number soft">?</span><div><h2 id="explainTitle">Giải thích thuật toán</h2><p id="algoIntro"></p></div></div>
+            <div class="explain-group"><h3>1. Khởi tạo thanh ghi</h3><div class="register-info" id="registerInfo"></div><p id="initInfo" class="subtle-copy"></p></div>
+            <div class="explain-group"><h3>2. Chọn thanh ghi quay</h3><div class="formula" id="majFormula"></div><p class="subtle-copy">Chỉ những thanh ghi có bit điều khiển bằng MAJ mới quay.</p></div>
+            <div class="explain-group"><h3>3. Bit phản hồi</h3><div class="feedback-formulas" id="feedbackFormulas"></div></div>
+            <div class="explain-group"><h3>4. Dòng khóa &amp; XOR</h3><div class="formula" id="outputFormula"></div><p class="subtle-copy">Sau khi quay: tính sᵢ, ghép thành S. Mã hóa C = P ⊕ S và giải mã P = C ⊕ S.</p></div>
+            <p class="learning-note" id="modeAcademicNote"></p>
           </aside>
         </div>
 
         <section class="card rounds-card" id="roundsSection" aria-labelledby="roundsTitle" hidden>
-          <div class="section-heading"><span class="step-number">03</span><div><h2 id="roundsTitle">Kết quả từng vòng quay</h2><p>Chọn một dòng để xem trạng thái ba thanh ghi trước và sau khi quay.</p></div></div>
-          <div class="rounds-top"><span id="roundCount">0 chu kỳ</span><span class="key-summary">Dòng khóa S: <code id="keystreamText">—</code></span></div>
-          <div class="table-wrap"><table><thead><tr><th scope="col">Vòng</th><th scope="col">Bit điều khiển</th><th scope="col">MAJ</th><th scope="col">Thanh ghi quay</th><th scope="col">tX / tY / tZ</th><th scope="col">X sau quay</th><th scope="col">Y sau quay</th><th scope="col">Z sau quay</th><th scope="col">sᵢ</th></tr></thead><tbody id="traceBody"></tbody></table></div>
-          <div class="round-detail" id="roundDetail" aria-live="polite">
-            <div class="detail-header"><h3 id="detailTitle">Chi tiết vòng 1</h3><div class="step-controls"><button type="button" id="prevBtn" aria-label="Vòng trước">← Trước</button><button type="button" id="nextBtn" aria-label="Vòng tiếp">Sau →</button></div></div>
-            <p class="detail-summary" id="detailSummary"></p>
-            <div class="register-details" id="registerDetails"></div>
-          </div>
+          <div class="section-heading"><span class="step-number">03</span><div><h2 id="roundsTitle">Kết quả từng vòng quay</h2><p>Xem trạng thái thanh ghi trước/sau mỗi chu kỳ. Chỉ hiển thị tối đa 16 chu kỳ đầu để bảng gọn hơn.</p></div></div>
+          <div class="rounds-top"><span id="roundCount"></span><span class="key-summary">Dòng khóa S (đầu): <code id="keystreamText">—</code></span></div>
+          <div class="table-wrap"><table><thead><tr><th>Vòng</th><th>Frame</th><th>Bit điều khiển</th><th>MAJ</th><th>Quay</th><th>tX / tY / tZ</th><th>X sau</th><th>Y sau</th><th>Z sau</th><th>sᵢ</th></tr></thead><tbody id="traceBody"></tbody></table></div>
+          <div class="round-detail" id="roundDetail"><div class="detail-header"><h3 id="detailTitle">Chi tiết vòng</h3><div class="step-controls"><button type="button" id="prevBtn">← Trước</button><button type="button" id="nextBtn">Sau →</button></div></div><p class="detail-summary" id="detailSummary"></p><div class="register-details" id="registerDetails"></div></div>
         </section>
 
         <section class="final-results" id="resultsSection" aria-labelledby="resultsTitle" hidden>
-          <div class="section-heading"><span class="step-number">04</span><div><h2 id="resultsTitle">Kết quả mã hóa & giải mã</h2><p>Cùng một dòng khóa S được dùng cho cả hai phép XOR.</p></div><span class="result-status" id="resultStatus">PASS</span></div>
-          <div class="result-equations"><span><strong>P</strong> = <code id="outP">—</code></span><span><strong>S</strong> = <code id="outS">—</code></span></div>
+          <div class="section-heading"><span class="step-number">04</span><div><h2 id="resultsTitle">Kết quả mã hóa &amp; giải mã</h2><p id="resultType">Mã hóa và giải mã bằng XOR với cùng dòng khóa.</p></div><span class="result-status" id="resultStatus">PASS</span></div>
+          <div class="result-equations"><span><strong>P:</strong> <code id="outP"></code></span><span><strong>S:</strong> <code id="outS"></code></span></div>
           <div class="big-result-grid">
-            <div class="big-result encryption"><div class="result-label">BẢN MÃ SAU MÃ HÓA · C = P ⊕ S</div><div class="big-value" id="outC">—</div><button type="button" class="copy-result" data-copy="c">Sao chép bản mã</button></div>
-            <div class="big-result decryption"><div class="result-label">BẢN RÕ SAU GIẢI MÃ · P = C ⊕ S</div><div class="big-value" id="outRecovered">—</div><button type="button" class="copy-result" data-copy="recovered">Sao chép bản rõ</button></div>
+            <div class="big-result encryption"><div class="result-label" id="cipherLabel">BẢN MÃ C</div><div class="big-value" id="outC"></div><button type="button" class="copy-result" id="copyCipher">Sao chép bản mã</button></div>
+            <div class="big-result decryption"><div class="result-label" id="recoverLabel">DỮ LIỆU KHÔI PHỤC</div><div class="big-value" id="outRecovered"></div><button type="button" class="copy-result" id="copyRecovered">Sao chép kết quả</button></div>
           </div>
-          <div class="result-foot" id="resultFoot">Kết quả giải mã trùng bản rõ ban đầu.</div>
+          <div id="filePreview" class="file-preview" hidden><p id="fileResultInfo"></p><div class="file-images" id="fileImages"></div></div>
+          <div class="download-row" id="downloadRow" hidden><button type="button" class="secondary-button" id="downloadCipher">Tải bản mã (.enc)</button><button type="button" class="secondary-button" id="downloadRecovered">Tải tệp đã giải mã</button></div>
+          <div class="result-foot" id="resultFoot"></div>
         </section>
       </div>
-
-      <p class="academic-note" id="academicNote">Lưu ý: Đây là website mô phỏng học tập, không sử dụng để bảo vệ dữ liệu thực tế.</p>
+      <p class="academic-note">Dự án phục vụ học tập. A5/1 có các điểm yếu đã được biết đến; TinyA5/1 là mô hình thu nhỏ. Không dùng để bảo vệ thông tin thật.</p>
     </main>
-    <footer>HTML / CSS / JavaScript / C++ WebAssembly</footer>
+    <footer>© 2026 · TinyA5/1 &amp; A5/1 Educational Simulator · HTML / CSS / JavaScript / C++</footer>
   </div>
 </body>
 </html>
