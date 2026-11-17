@@ -10,7 +10,7 @@ Z = K[14:23]
 def quay(thanh_ghi, taps):
     t = 0
     for vi_tri in taps:
-        t = t ^ int(thanh_ghi[vi_tri - 1])
+        t = t ^ int(thanh_ghi[vi_tri])
     thanh_ghi_moi = str(t) + thanh_ghi[:-1]
     return thanh_ghi_moi, t
 def majority(a, b, c):

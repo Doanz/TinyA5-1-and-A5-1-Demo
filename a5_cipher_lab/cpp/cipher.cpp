@@ -33,9 +33,9 @@ string tiny(const string& k,size_t n) {
     string x=k.substr(0,6),y=k.substr(6,8),z=k.substr(14,9), s;
     for(size_t i=0;i<n;++i){
         int ax=x[1]-'0',ay=y[3]-'0',az=z[3]-'0',m=maj(ax,ay,az);
-        if(ax==m)tickTiny(x,{1,3,4});
-        if(ay==m)tickTiny(y,{5,6});
-        if(az==m)tickTiny(z,{1,6,7});
+        if(ax==m)tickTiny(x,{2,4,5});
+        if(ay==m)tickTiny(y,{6,7});
+        if(az==m)tickTiny(z,{2,7,8});
         s+=char('0'+((x[5]-'0')^(y[7]-'0')^(z[8]-'0')));
     }
     return s;

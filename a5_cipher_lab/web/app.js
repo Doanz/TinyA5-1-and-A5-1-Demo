@@ -13,7 +13,7 @@ const SPECS = {
     intro: "Khóa K được chia trực tiếp thành X/Y/Z như chương trình Python của dự án.",
     init: "Khóa 23 bit → X 6 bit, Y 8 bit, Z 9 bit. Đánh số bit từ 0 ở bên trái (giống phép lấy chỉ số chuỗi Python).",
     maj: "MAJ(x₁, y₃, z₃)",
-    feedback: ["tX = x₁ ⊕ x₃ ⊕ x₄", "tY = y₅ ⊕ y₆", "tZ = z₁ ⊕ z₆ ⊕ z₇"],
+    feedback: ["tX = x2 ⊕ x4 ⊕ x5", "tY = y6 ⊕ y7", "tZ = z2 ⊕ z7 ⊕ z8"],
     output: "sᵢ = x₅ ⊕ y₇ ⊕ z₈",
     academic: "TinyA5/1 6–8–9 / 23 bit khớp với tệp Python hiện có. Đây là mô hình giáo dục, không phải tiêu chuẩn mật mã. Các vị trí phản hồi là chỉ số 0-based trong mã nguồn; tương đương các tap (2,4,5), (6,7), (2,7,8) nếu đếm từ 1."
   },

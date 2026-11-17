@@ -12,7 +12,7 @@
   const MAX_TRACE = 16;
   const TINY = {
     lengths: [6, 8, 9], control: [1, 3, 3],
-    taps: [[1, 3, 4], [5, 6], [1, 6, 7]], output: [5, 7, 8]
+    taps: [[2, 4, 5], [6, 7], [2, 7, 8]], output: [5, 7, 8]
   };
   const A5 = {
     lengths: [19, 22, 23], control: [8, 10, 10],
